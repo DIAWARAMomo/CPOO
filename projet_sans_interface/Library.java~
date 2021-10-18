@@ -1,0 +1,36 @@
+import java.io.Writer;
+import java.net.MalformedURLException;
+import java.util.*;
+import java.net.URL;
+import java.util.ResourceBundle;
+import java.io.File;
+import java.io.InputStream;
+import java.io.RandomAccessFile;
+import java.net.HttpURLConnection;
+public class Library  {
+     protected LinkedList<Telechargement> lstTelechargement;
+    public Library(){
+        lstTelechargement = new LinkedList<Telechargement>();
+    }
+ public void annuler(int i){
+     lstTelechargement.get(i).annuler();
+ }
+    public void pause(int i){
+        lstTelechargement.get(i).pause();
+    }
+    public void reprendre(int i){
+        lstTelechargement.get(i).commencer();
+    }
+    public boolean someLibraryMethod() {
+        return true;
+    }
+    public void add(String url) throws MalformedURLException {
+        Telechargement tempTC = new Telechargement(url);
+        lstTelechargement.add(tempTC);
+    }
+    public void add(String url, String dossier) throws MalformedURLException {
+        Telechargement tempTC = new Telechargement(url, dossier);
+        lstTelechargement.add(tempTC);
+    }
+   
+}

@@ -1,0 +1,146 @@
+
+import java.io.Writer;
+import java.net.MalformedURLException;
+import java.util.*;
+import java.net.URL;
+import java.util.ResourceBundle;
+import java.io.File;
+import java.io.InputStream;
+import java.io.RandomAccessFile;
+import java.net.HttpURLConnection;
+
+public class Telechargement implements Runnable{
+    protected URL url;
+    protected String nom, dossier;
+    protected long taille, donnees;
+    protected double pourcentage;
+    protected Statut statut;
+    protected boolean verification;
+    protected static final int TAILLE_MAX = 1024;// un byte pour le telechargement
+     public Telechargement(String  url,String nDossier) throws MalformedURLException {
+        this.url = verifieUrl(url);
+        this.taille = -1;
+        this.donnees = 0;
+        this.statut = Statut.TELECHARGEMENT;
+        this.dossier = nDossier;
+        commencer();
+    }
+    public Telechargement(String url) throws MalformedURLException {
+        this.url = verifieUrl(url);
+        this.taille = -1;
+        this.donnees = 0;
+        this.statut = Statut.TELECHARGEMENT;
+        this.dossier = "";
+	commencer();
+    }
+   
+    public void setNom(String s){nom = s;}
+    public void changerStatut(Statut s){statut = s;}
+    public void echec(){changerStatut(Statut.ECHEC);}
+    public void pause(){changerStatut(Statut.PAUSE);}
+    public void continuer(){
+        changerStatut(Statut.TELECHARGEMENT);
+        commencer();
+    }
+    public void annuler(){changerStatut(Statut.ANNULE);}
+    
+    // verification de L'Url
+     public URL verifieUrl(String url) throws MalformedURLException {
+        URL temp = null;
+        if(url.toLowerCase().startsWith("http://") || url.toLowerCase().startsWith("https://")){
+            System.out.println("verification");
+            try{
+                temp = new URL(url);
+                String tempStr = temp.getPath();
+                setNom(tempStr.substring(tempStr.lastIndexOf('/')+1, tempStr.length())) ;
+                System.out.println(nom);
+                verification = true;
+                System.out.println("URL correct");
+            }catch (Exception ex  ){
+                System.out.println("Erreur");
+            }
+        }
+	return temp;
+     }
+    public void commencer(){
+	if(verification){
+            System.out.println("Lancer");
+            Thread temp = new Thread(this);
+            temp.start();
+        }else{
+            echec();
+        }
+    }
+
+    public void run() {
+        RandomAccessFile tempFile = null;
+        InputStream tempStream = null;
+        int speed = 0;
+        try {
+	    HttpURLConnection tempCon = (HttpURLConnection) url.openConnection();
+            tempCon.setConnectTimeout(1000);
+            tempCon.setRequestProperty("Range", "bytes=" + donnees + "-");
+            tempCon.connect();
+            if((tempCon.getResponseCode() / 100) != 2){
+               	                echec();
+            }
+            int tempLength = tempCon.getContentLength();
+            if(tempLength < 1){
+                echec();
+	    }
+	    else{
+                taille = tempLength;
+            }
+            if(dossier.length() > 0 ){
+                dossier += "/";
+            }
+            String tempPath = dossier + nom;
+            System.out.println("Nom :" + nom);
+            tempFile = new RandomAccessFile(tempPath, "rw");
+	    tempFile.seek(donnees);
+	    tempStream = tempCon.getInputStream();
+	    while(statut == Statut.TELECHARGEMENT){
+		byte[] data;
+                if(taille - donnees > TAILLE_MAX){
+                    data = new byte[TAILLE_MAX];
+                }else{
+                    data = new byte[(int)(taille - donnees)];
+                }
+                int tempData = tempStream.read(data);
+                if(tempData == -1){
+                    break;
+                }
+                tempFile.write(data,0, tempData);
+                donnees += tempData;
+                pourcentage = ((double) donnees / (double)taille) ;
+                changerStatut(Statut.TELECHARGEMENT);
+	    }
+            if(statut == Statut.TELECHARGEMENT){
+                changerStatut(Statut.TERMINE);
+	    }
+        }catch (Exception e){
+            echec();
+        }finally {
+            // fermer le file.
+            if (tempFile != null) {
+                try {
+                    tempFile.close();
+                } catch (Exception e) {
+                    echec();
+		}
+            }
+	    if (tempStream != null) {
+                try {
+                    tempStream.close();
+                } catch (Exception e) {}
+            }
+        }
+    }
+    static enum Statut{
+        ANNULE,
+        PAUSE,
+        TERMINE,
+        TELECHARGEMENT,
+        ECHEC;
+    }
+}
